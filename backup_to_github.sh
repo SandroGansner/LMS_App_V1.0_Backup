@@ -2,32 +2,23 @@
 
 echo "🛡️  Starte Backup & GitHub Push..."
 
-# Projektpfad
-cd /Users/sandrogansner/Projects/LMS_Finanzen_v1.0 || { echo "❌ Projektordner nicht gefunden"; exit 1; }
+# Datum & Uhrzeit für Commit
+DATUM=$(date "+%Y-%m-%d %H:%M")
 
-# Git init, falls noch nicht vorhanden
-if [ ! -d ".git" ]; then
-    echo "🆕 Initialisiere neues Git-Repo..."
-    git init
-fi
-
-# Alle Änderungen hinzufügen
-echo "📦 Füge Änderungen hinzu..."
+# Änderungen hinzufügen
+echo "�� Füge Änderungen hinzu..."
 git add .
 
-# Commit mit Timestamp
-NOW=$(date +"%Y-%m-%d %H:%M")
-git commit -m "💾 Backup: Build stabil am $NOW"
+# Commit erstellen
+git commit -m "💾 Backup: Build stabil am $DATUM"
 
-# Falls noch kein Remote gesetzt ist, bitte URL eintragen:
-if ! git remote | grep origin >/dev/null; then
-    echo "🌐 GitHub Remote wird hinzugefügt..."
-    read -p "🔑 GitHub Repo-URL (z. B. https://github.com/deinname/LMS_Finanzen.git): " repo_url
-    git remote add origin "$repo_url"
-fi
+# GitHub Remote hinzufügen (nur beim ersten Mal nötig)
+echo "🌐 GitHub Remote wird gesetzt auf dein Repository..."
+git remote remove origin 2> /dev/null
+git remote add origin https://github.com/SandroGansner/LMS_App_V1.0_Backup.git
 
-# Auf Branch "main" pushen
-git branch -M main
+# Push auf GitHub
+echo "🚀 Pushe auf GitHub..."
 git push -u origin main
 
 echo "✅ Fertig! Alles sicher auf GitHub gepusht 🎉"
