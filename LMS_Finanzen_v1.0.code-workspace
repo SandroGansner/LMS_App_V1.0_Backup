@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "flutter",
+			"path": "../../development/flutter/flutter"
+		}
+	],
+	"settings": {}
+}

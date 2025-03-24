@@ -1,0 +1,57 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import '../models/purchase.dart';
+
+class PurchaseService {
+  Database? _database;
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
+
+  Future<Database> _initDatabase() async {
+    String dbPath = await getDatabasesPath();
+    return await openDatabase(
+      join(dbPath, 'purchases.db'),
+      version: 1,
+      onCreate: (db, version) async {
+        await db.
+
+
+
+('''
+          CREATE TABLE purchases (
+            id TEXT PRIMARY KEY,
+            itemName TEXT,
+            price REAL,
+            costCenter TEXT,
+            projectNumber TEXT,
+            invoiceIssuer TEXT,
+            employee TEXT,
+            cardUsed TEXT,
+            receiptPath TEXT,
+            vatRate TEXT,
+            date TEXT
+          )
+        ''');
+      },
+    );
+  }
+
+  Future<List<Purchase>> getPurchases() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('purchases');
+    return List.generate(maps.length, (i) => Purchase.fromJson(maps[i]));
+  }
+
+  Future<void> addPurchase(Purchase purchase) async {
+    final db = await database;
+    await db.insert(
+      'purchases',
+      purchase.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+}

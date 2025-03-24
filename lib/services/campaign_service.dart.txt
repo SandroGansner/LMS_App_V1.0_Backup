@@ -1,0 +1,15 @@
+import '../models/campaign.dart';
+
+class CampaignService {
+  // Simulation – in einem produktiven Szenario werden hier API-Aufrufe verwendet
+  final List<Campaign> _campaigns = [];
+
+  Future<List<Campaign>> getCampaigns() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    return _campaigns;
+  }
+
+  Future<void> addCampaign(Campaign campaign) async {
+    _campaigns.add(campaign);
+  }
+}

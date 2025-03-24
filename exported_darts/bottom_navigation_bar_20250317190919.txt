@@ -1,0 +1,43 @@
+import 'package:flutter/material.dart';
+
+class BottomNavigationBarWidget extends StatefulWidget {
+  @override
+  _BottomNavigationBarWidgetState createState() =>
+      _BottomNavigationBarWidgetState();
+}
+
+class _BottomNavigationBarWidgetState extends State<BottomNavigationBarWidget> {
+  int _currentIndex = 0;
+
+  void onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed, // added for permanent visibility
+      currentIndex: _currentIndex,
+      onTap: onTabTapped,
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.blue, // angepasste Farbe für aktives Icon
+      unselectedItemColor: Colors.grey, // angepasste Farbe für inaktive Icons
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.shopping_cart),
+          label: 'Einkauf',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.receipt),
+          label: 'Spesen',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.campaign),
+          label: 'Kampagnen',
+        ),
+      ],
+    );
+  }
+}

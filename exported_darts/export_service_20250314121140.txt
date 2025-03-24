@@ -1,0 +1,190 @@
+Future<void> exportPurchasesFancy({
+  required List<Purchase> purchases,
+  String anbieter = "GKB (CHF)",
+  String periode = "Dez 24",
+  String title = "Kreditkarten-Abrechnung",
+}) async {
+  if (purchases.isEmpty) {
+    debugPrint("Keine Einkäufe vorhanden – Excel bleibt leer.");
+    return;
+  }
+
+  // ---------------------------
+  // Gruppierung: Erstelle Gruppen nach Karte, Jahr und Monat.
+  // Schlüssel: "<cardUsed>_<year>_<month>"
+  // ---------------------------
+  final Map<String, List<Purchase>> grouped = {};
+  for (final p in purchases) {
+    final String year = p.date.year.toString();
+    final String month = p.date.month.toString().padLeft(2, '0');
+    final String key = "${p.cardUsed}_$year\_$month";
+    if (grouped.containsKey(key)) {
+      grouped[key]!.add(p);
+    } else {
+      grouped[key] = [p];
+    }
+  }
+
+  // Für jede Gruppe: Excel exportieren
+  for (final entry in grouped.entries) {
+    final String key = entry.key; // z. B. "Cornercard CHF_2025_03"
+    final List<Purchase> groupPurchases = entry.value;
+
+    // Extrahiere Karte, Jahr und Monat
+    final List<String> parts = key.split('_');
+    final String card = parts[0];
+    final String year = parts[1];
+    final String month = parts[2];
+
+    // Erstelle das Zielverzeichnis:
+    final String targetDirPath =
+        '${await AppConstants.getExportPath()
+}\\$card\\$year\\$month';
+    final Directory exportDir = Directory(targetDirPath);
+    if (!exportDir.existsSync()) {
+      exportDir.createSync(recursive: true);
+    }
+
+    // ---------------------------
+    // Erstelle ein neues Excel-Workbook und -Worksheet
+    // ---------------------------
+    final xlsio.Workbook workbook = xlsio.Workbook();
+    final xlsio.Worksheet sheet = workbook.worksheets[0];
+    sheet.name = 'Abrechnung';
+
+    // ---------------------------
+    // Kopfbereich (Zeilen 1-4)
+    // ---------------------------
+    // Zeile 1: Haupttitel (über 9 Spalten, da wir jetzt eine extra Spalte für Kaufdatum haben)
+    final xlsio.Range row1 = sheet.getRangeByName('A1:I1');
+    row1.merge();
+    row1.setText(title);
+    row1.cellStyle.bold = true;
+    row1.cellStyle.fontSize = 16;
+    row1.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    // Zeile 2: Anbieter & Periode
+    final xlsio.Range row2 = sheet.getRangeByName('A2:I2');
+    row2.merge();
+    row2.setText("Anbieter: $anbieter   Periode: $periode");
+    row2.cellStyle.bold = true;
+    row2.cellStyle.fontSize = 12;
+    row2.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    // Zeile 3: Firmenname
+    final xlsio.Range row3 = sheet.getRangeByName('A3:I3');
+    row3.merge();
+    row3.setText("Lenzerheide Marketing-Support AG");
+    row3.cellStyle.bold = true;
+    row3.cellStyle.fontSize = 12;
+    row3.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    // Zeile 4: Geschäftsjahr
+    final xlsio.Range row4 = sheet.getRangeByName('A4:I4');
+    row4.merge();
+    row4.setText("GJ ${DateTime.now().year}/${DateTime.now().year + 1}");
+    row4.cellStyle.bold = true;
+    row4.cellStyle.fontSize = 12;
+    row4.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    // ---------------------------
+    // Spaltenüberschriften (Zeile 6)
+    // ---------------------------
+    // 9 Spalten:
+    // A: Beleg, B: Kaufdatum, C: Rechnungssteller, D: Text, E: Konto, F: KST, G: Projekt, H: VAT, I: BETRAG CHF
+    int headerRow = 6;
+    final List<String> headers = [
+      "Beleg",
+      "Kaufdatum",
+      "Rechnungssteller",
+      "Text",
+      "Konto",
+      "KST",
+      "Projekt",
+      "VAT",
+      "BETRAG CHF"
+    ];
+    for (int col = 0; col < headers.length; col++) {
+      final cell = sheet.getRangeByIndex(headerRow, col + 1);
+      cell.setText(headers[col]);
+      cell.cellStyle.bold = true;
+      cell.cellStyle.fontColor = '#FFFFFF';
+      cell.cellStyle.backColor = '#F2213B';
+      cell.cellStyle.hAlign = xlsio.HAlignType.center;
+    }
+
+    // ---------------------------
+    // Datenzeilen (ab Zeile 7)
+    // ---------------------------
+    int dataStartRow = headerRow + 1;
+    for (int i = 0; i < groupPurchases.length; i++) {
+      final Purchase p = groupPurchases[i];
+      int rowIndex = dataStartRow + i;
+      // Spalte A: Beleg (ID)
+      sheet.getRangeByIndex(rowIndex, 1).setText(p.id);
+      // Spalte B: Kaufdatum (formatieren als DD.MM.YYYY)
+      String formattedDate =
+          "${p.date.day.toString().padLeft(2, '0')}.${p.date.month.toString().padLeft(2, '0')}.${p.date.year}";
+      sheet.getRangeByIndex(rowIndex, 2).setText(formattedDate);
+      // Spalte C: Rechnungssteller
+      sheet.getRangeByIndex(rowIndex, 3).setText(p.invoiceIssuer);
+      // Spalte D: Text (Artikelname)
+      sheet.getRangeByIndex(rowIndex, 4).setText(p.itemName);
+      // Spalte E: Konto (cardUsed)
+      sheet.getRangeByIndex(rowIndex, 5).setText(p.cardUsed);
+      // Spalte F: KST
+      sheet.getRangeByIndex(rowIndex, 6).setText(p.costCenter);
+      // Spalte G: Projekt
+      sheet.getRangeByIndex(rowIndex, 7).setText(p.projectNumber);
+      // Spalte H: VAT
+      sheet.getRangeByIndex(rowIndex, 8).setText(p.vatRate);
+      // Spalte I: BETRAG CHF
+      sheet.getRangeByIndex(rowIndex, 9).setNumber(p.price);
+    }
+
+    // ---------------------------
+    // Summenzeile (unter den Daten)
+    // ---------------------------
+    final int lastDataRow = dataStartRow + groupPurchases.length - 1;
+    final int sumRow = lastDataRow + 1;
+    sheet.getRangeByIndex(sumRow, 8).setText("Total");
+    sheet.getRangeByIndex(sumRow, 8).cellStyle.bold = true;
+    final String sumFormula = '=SUM(I${dataStartRow}:I${lastDataRow})';
+    sheet.getRangeByIndex(sumRow, 9).setFormula(sumFormula);
+    sheet.getRangeByIndex(sumRow, 9).cellStyle.bold = true;
+
+    // ---------------------------
+    // AutoFit der Spalten (A bis I)
+    // ---------------------------
+    for (int col = 1; col <= 9; col++) {
+      sheet.autoFitColumn(col);
+    }
+
+    // ---------------------------
+    // Workbook in Bytes umwandeln und Datei speichern
+    // ---------------------------
+    final List<int>? bytes = workbook.saveAsStream();
+    if (bytes == null) {
+      debugPrint("Excel encoding returned null – nichts zu speichern.");
+      try {
+        workbook.dispose();
+      } catch (e) {
+        debugPrint("Fehler beim Dispose: $e");
+      }
+      continue;
+    }
+    final modifiableBytes = bytes.toList();
+    try {
+      workbook.dispose();
+    } catch (e) {
+      debugPrint("Workbook.dispose() Fehler ignoriert: $e");
+    }
+
+    final String fileName = "Einkauf_${card}_${year}_${month}.xlsx";
+    final String fullFilePath = '${exportDir.path}\\$fileName';
+    final file = File(fullFilePath);
+    await file.writeAsBytes(modifiableBytes);
+    debugPrint("Excel exported: $fullFilePath");
+    OpenFile.open(fullFilePath);
+  }
+}

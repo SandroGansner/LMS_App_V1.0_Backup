@@ -1,0 +1,14 @@
+import '../models/purchase.dart';
+
+class PurchaseService {
+  final List<Purchase> _purchases = [];
+
+  Future<List<Purchase>> getPurchases() async {
+    await Future.delayed(Duration(milliseconds: 500));
+    return _purchases;
+  }
+
+  Future<void> addPurchase(Purchase purchase) async {
+    _purchases.add(purchase);
+  }
+}

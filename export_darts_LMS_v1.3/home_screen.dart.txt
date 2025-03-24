@@ -1,0 +1,71 @@
+// lib/screens/home_screen.dart
+import 'package:flutter/material.dart';
+import 'campaign_screen.dart';
+import 'expense_screen.dart';
+import 'purchase_screen.dart';
+import 'upload_screen.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const CampaignScreen(),
+    const ExpenseScreen(),
+    const PurchaseScreen(),
+    const UploadScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2213B),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF2213B),
+        elevation: 0,
+        title: const Text('LMS Finanzen'),
+      ),
+      body: _screens[_currentIndex],
+      bottomNavigationBar: Container(
+        color: const Color(0xFFF2213B),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          currentIndex: _currentIndex,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          elevation: 0,
+          onTap: (newIndex) {
+            if (!mounted) return;
+            setState(() {
+              _currentIndex = newIndex;
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.campaign),
+              label: 'Kampagnen',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long),
+              label: 'Spesen',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart),
+              label: 'Einkäufe',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.cloud_upload),
+              label: 'Upload',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

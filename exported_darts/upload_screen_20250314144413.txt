@@ -1,0 +1,54 @@
+import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
+import '../services/file_upload_service.dart';
+
+class UploadScreen extends StatefulWidget {
+  const UploadScreen({super.key});
+
+  @override
+  State<UploadScreen> createState() => _UploadScreenState();
+}
+
+class _UploadScreenState extends State<UploadScreen> {
+  String? fileName;
+
+  Future<void> _pickFile() async {
+    const typeGroup =
+        XTypeGroup(label: 'files', extensions: ['pdf', 'jpg', 'png']);
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    if (file != null) {
+      String? savedPath =
+          await FileUploadService().uploadFile(file); // Kein Datum
+      if (mounted) {
+        setState(() {
+          fileName = savedPath ?? file.name;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Datei hochladen", style: TextStyle(fontSize: 24)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Text(fileName ?? 'Datei auswählen')),
+                IconButton(
+                  icon: const Icon(Icons.attach_file),
+                  onPressed: _pickFile,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

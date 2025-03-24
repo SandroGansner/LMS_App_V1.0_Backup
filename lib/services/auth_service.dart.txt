@@ -1,0 +1,3 @@
+class AuthService {
+  // Zurzeit deaktiviert – zukünftige Implementierung: Login, Registrierung etc.
+}

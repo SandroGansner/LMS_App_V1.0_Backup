@@ -1,0 +1,13 @@
+// lib/constants/app_constants.dart
+class AppConstants {
+  // Exportpfad für Excel-Dateien
+  static const String exportPath =
+      r'C:\Users\sandro.gansner\OneDrive - ARLE\Freigegebene Dokumente\Finanzen';
+
+  // Basis-Pfad für Belegdateien
+  static const String receiptsBasePath =
+      r'C:\Users\sandro.gansner\OneDrive - ARLE\Freigegebene Dokumente\Finanzen\Belege';
+
+  // Weitere Konstanten
+  static const String appName = 'LMS Finanzen';
+}

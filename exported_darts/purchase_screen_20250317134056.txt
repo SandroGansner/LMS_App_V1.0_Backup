@@ -1,0 +1,288 @@
+import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:intl/intl.dart';
+import '../models/purchase.dart';
+import '../services/purchase_service.dart';
+import '../services/export_service.dart';
+import '../services/file_upload_service.dart';
+import '../widgets/dropdown_selector.dart';
+import '../services/data_service.dart';
+
+class PurchaseScreen extends StatefulWidget {
+  const PurchaseScreen({super.key});
+
+  @override
+  State<PurchaseScreen> createState() => _PurchaseScreenState();
+}
+
+class _PurchaseScreenState extends State<PurchaseScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Formularfelder
+  String itemName = '';
+  double? price;
+  String projectNumber = '';
+  String invoiceIssuer = '';
+  String? selectedEmployee;
+  String? selectedCostCenter;
+  String? selectedProject;
+  String? selectedCard;
+  String? receiptFileName;
+  String? selectedVAT;
+  DateTime? selectedPurchaseDate;
+
+  // Dropdown-Daten
+  List<Map<String, String>> employees = [];
+  List<Map<String, String>> costCenters = [];
+  List<Map<String, String>> projects = [];
+  List<String> paymentCards = [];
+  final List<String> vatOptions = ['0%', '5%', '7.7%', '19%'];
+
+  // Intern gespeicherte Einkäufe
+  List<Purchase> _purchases = [];
+  final PurchaseService _purchaseService = PurchaseService();
+  final FileUploadService _fileUploadService = FileUploadService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDropdownData();
+    _loadPurchases();
+  }
+
+  Future<void> _loadDropdownData() async {
+    final emp = await DataService().getEmployees();
+    final cc = await DataService().getCostCenters();
+    final proj = await DataService().getProjects();
+    final cards = await DataService().getPaymentCards();
+
+    employees = List<Map<String, String>>.from(emp);
+    costCenters = List<Map<String, String>>.from(cc);
+    projects = List<Map<String, String>>.from(proj);
+    paymentCards = List<String>.from(cards);
+
+    employees.sort((a, b) => a['name']!.compareTo(b['name']!));
+
+    setState(() {});
+  }
+
+  Future<void> _loadPurchases() async {
+    final purchases = await _purchaseService.getPurchases();
+    setState(() {
+      _purchases = purchases;
+    });
+  }
+
+  Future<void> _pickReceiptFile() async {
+    if (selectedPurchaseDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte zuerst ein Kaufdatum auswählen.')),
+      );
+      return;
+    }
+    const typeGroup =
+        XTypeGroup(label: 'files', extensions: ['pdf', 'jpg', 'png']);
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    if (file != null) {
+      String? savedPath =
+          await _fileUploadService.uploadFile(file, selectedPurchaseDate!);
+      setState(() {
+        receiptFileName = savedPath ?? file.name;
+      });
+    }
+  }
+
+  Future<void> _pickPurchaseDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedPurchaseDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        selectedPurchaseDate = picked;
+      });
+    }
+  }
+
+  Future<void> _saveAndExportPurchase() async {
+    if (_formKey.currentState!.validate() &&
+        selectedEmployee != null &&
+        selectedCostCenter != null &&
+        selectedProject != null &&
+        selectedCard != null &&
+        selectedVAT != null &&
+        price != null &&
+        selectedPurchaseDate != null) {
+      final newPurchase = Purchase(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        itemName: itemName,
+        price: price!,
+        costCenter: selectedCostCenter!,
+        projectNumber: projectNumber,
+        invoiceIssuer: invoiceIssuer,
+        employee: selectedEmployee!,
+        cardUsed: selectedCard!,
+        receiptPath: receiptFileName ?? '',
+        vatRate: selectedVAT!,
+        date: selectedPurchaseDate!,
+      );
+
+      await _purchaseService.addPurchase(newPurchase);
+      await _loadPurchases();
+
+      _formKey.currentState!.reset();
+      setState(() {
+        selectedEmployee = null;
+        selectedCostCenter = null;
+        selectedProject = null;
+        selectedCard = null;
+        receiptFileName = null;
+        price = null;
+        itemName = '';
+        projectNumber = '';
+        invoiceIssuer = '';
+        selectedVAT = null;
+        selectedPurchaseDate = null;
+      });
+
+      // Fix 4: Ersetze exportPurchasesFancy durch exportPurchases
+      await ExportService().exportPurchases(purchases: _purchases);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Vielen Dank, Ihr Einkauf wurde erfolgreich erfasst und exportiert!'),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Bitte alle Felder, einschließlich Kaufdatum, ausfüllen.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Einkauf erfassen",
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Artikelname'),
+                onChanged: (val) => itemName = val,
+                validator: (val) => (val == null || val.isEmpty)
+                    ? 'Bitte Artikelname eingeben'
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Preis (CHF)'),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => price = double.tryParse(val),
+                validator: (val) =>
+                    (val == null || double.tryParse(val) == null)
+                        ? 'Bitte gültigen Preis eingeben'
+                        : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                decoration:
+                    const InputDecoration(labelText: 'Rechnungssteller'),
+                onChanged: (val) => invoiceIssuer = val,
+                validator: (val) => (val == null || val.isEmpty)
+                    ? 'Bitte Rechnungssteller angeben'
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      selectedPurchaseDate != null
+                          ? 'Kaufdatum: ${DateFormat('dd.MM.yyyy').format(selectedPurchaseDate!)}'
+                          : 'Kaufdatum wählen',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: _pickPurchaseDate,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: employees.map((e) => e['name']!).toList(),
+                value: selectedEmployee,
+                hint: 'Mitarbeiter wählen',
+                onChanged: (val) => setState(() => selectedEmployee = val),
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: costCenters
+                    .map((c) => "${c['id']} - ${c['description']}")
+                    .toList(),
+                value: selectedCostCenter,
+                hint: 'Kostenstelle wählen',
+                onChanged: (val) => setState(() => selectedCostCenter = val),
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: projects
+                    .map((p) => "${p['id']} - ${p['description']}")
+                    .toList(),
+                value: selectedProject,
+                hint: 'Projekt wählen',
+                onChanged: (val) => setState(() => selectedProject = val),
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: paymentCards,
+                value: selectedCard,
+                hint: 'Zahlungskarte wählen',
+                onChanged: (val) => setState(() => selectedCard = val),
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: vatOptions,
+                value: selectedVAT,
+                hint: 'Mehrwertsteuer wählen',
+                onChanged: (val) => setState(() => selectedVAT = val),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                      child: Text(receiptFileName ?? 'Rechnung auswählen')),
+                  IconButton(
+                    icon: const Icon(Icons.attach_file),
+                    onPressed: _pickReceiptFile,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _saveAndExportPurchase,
+                  child: const Text('Einkauf erfassen'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "422661599043",
+    "project_id": "lms-finanzen",
+    "storage_bucket": "lms-finanzen.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:422661599043:android:b8627a8d5a97c0c31909f6",
+        "android_client_info": {
+          "package_name": "com.example.lms_finanzen_v1_0"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6FFJBL9zvjKfHFJ-hKdG08Kw7pLeFeg4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

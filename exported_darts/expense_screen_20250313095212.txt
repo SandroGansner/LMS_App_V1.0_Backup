@@ -1,0 +1,233 @@
+// lib/screens/expense_screen.dart
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:file_selector/file_selector.dart';
+import '../models/expense.dart';
+import '../services/expense_service.dart';
+import '../services/export_service.dart';
+import '../services/file_upload_service.dart';
+import '../widgets/dropdown_selector.dart';
+import '../services/data_service.dart';
+
+class ExpenseScreen extends StatefulWidget {
+  const ExpenseScreen({super.key});
+
+  @override
+  State<ExpenseScreen> createState() => _ExpenseScreenState();
+}
+
+class _ExpenseScreenState extends State<ExpenseScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Felder
+  String? selectedEmployee;
+  String? selectedCostCenter;
+  String projectNumber = '';
+  String description = '';
+  double? amount;
+  DateTime? expenseDate;
+  String? receiptFileName;
+  String? selectedVatRate; // Mehrwertsteuer
+
+  // Dropdown-Daten (mutable)
+  List<Map<String, String>> employees = [];
+  List<Map<String, String>> costCenters = [];
+  final List<String> vatOptions = ['0%', '2.5%', '3.7%', '7.7%'];
+
+  // Intern gespeicherte Spesen
+  List<Expense> _expenses = [];
+  final ExpenseService _expenseService = ExpenseService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDropdownData();
+    _loadExpenses();
+  }
+
+  Future<void> _loadDropdownData() async {
+    final emp = await DataService().getEmployees();
+    final cc = await DataService().getCostCenters();
+
+    employees = List<Map<String, String>>.from(emp);
+    costCenters = List<Map<String, String>>.from(cc);
+
+    // Optional sort (Mitarbeiter)
+    employees.sort((a, b) => a['name']!.compareTo(b['name']!));
+
+    setState(() {});
+  }
+
+  Future<void> _loadExpenses() async {
+    final expenses = await _expenseService.getExpenses();
+    setState(() {
+      _expenses = expenses;
+    });
+  }
+
+  Future<void> _pickReceiptFile() async {
+    const typeGroup =
+        XTypeGroup(label: 'files', extensions: ['pdf', 'jpg', 'png']);
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    if (file != null) {
+      setState(() {
+        receiptFileName = file.name;
+      });
+      await FileUploadService().uploadFile(file);
+    }
+  }
+
+  Future<void> _saveAndExportExpense() async {
+    if (_formKey.currentState!.validate() &&
+        selectedEmployee != null &&
+        selectedCostCenter != null &&
+        expenseDate != null &&
+        amount != null &&
+        selectedVatRate != null) {
+      final newExpense = Expense(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        employeeName: selectedEmployee!,
+        costCenter: selectedCostCenter!,
+        projectNumber: projectNumber,
+        amount: amount!,
+        date: expenseDate!,
+        description: description,
+        receiptPath: receiptFileName ?? '',
+        vatRate: selectedVatRate!,
+      );
+      await _expenseService.addExpense(newExpense);
+      await _loadExpenses();
+
+      // Reset
+      _formKey.currentState!.reset();
+      setState(() {
+        selectedEmployee = null;
+        selectedCostCenter = null;
+        expenseDate = null;
+        amount = null;
+        receiptFileName = null;
+        projectNumber = '';
+        description = '';
+        selectedVatRate = null;
+      });
+
+      // Export
+      await ExportService().exportExpensesFancy(_expenses);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Vielen Dank, Ihre Spesen wurden erfolgreich erfasst und fancy exportiert!')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Spesen erfassen",
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 16),
+              DropdownSelector<String>(
+                items: employees.map((e) => e['name']!).toList(),
+                value: selectedEmployee,
+                hint: 'Mitarbeiter wählen',
+                onChanged: (val) => setState(() => selectedEmployee = val),
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: costCenters
+                    .map((c) => "${c['id']} - ${c['description']}")
+                    .toList(),
+                value: selectedCostCenter,
+                hint: 'Kostenstelle wählen',
+                onChanged: (val) => setState(() => selectedCostCenter = val),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Projektnummer'),
+                onChanged: (val) => projectNumber = val,
+                validator: (val) => (val == null || val.isEmpty)
+                    ? 'Bitte Projektnummer eingeben'
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Betrag (CHF)'),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => amount = double.tryParse(val),
+                validator: (val) =>
+                    (val == null || double.tryParse(val) == null)
+                        ? 'Bitte gültigen Betrag eingeben'
+                        : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Beschreibung'),
+                onChanged: (val) => description = val,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      expenseDate == null
+                          ? 'Datum wählen'
+                          : DateFormat('yyyy-MM-dd').format(expenseDate!),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () async {
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        setState(() => expenseDate = picked);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: Text(receiptFileName ?? 'Beleg auswählen')),
+                  IconButton(
+                    icon: const Icon(Icons.attach_file),
+                    onPressed: _pickReceiptFile,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: vatOptions,
+                value: selectedVatRate,
+                hint: 'Mehrwertsteuer wählen',
+                onChanged: (val) => setState(() => selectedVatRate = val),
+              ),
+              const SizedBox(height: 10),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _saveAndExportExpense,
+                  child: const Text('Spesen erfassen'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

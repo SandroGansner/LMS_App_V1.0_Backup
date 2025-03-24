@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'LMS Finanzen',
+      home: HomeScreen(),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool einkaufErfasst = false;
+
+  void verarbeiteBelegUndEinkauf() {
+    print('Starte Gruppierung der Einkäufe...');
+    // ...existing Gruppierungslogik...
+    print('Gruppierung abgeschlossen. Verarbeite 1 Karten...');
+    print(
+        'Exportiere nach: /Users/sandrogansner/Documents/Finanzen\\Freigegebene Dokumente\\Finanzen\\Swisscard CHF_März 2025.xlsx');
+    print('Erstelle Kopfbereich für Swisscard CHF_März 2025.xlsx...');
+    print('Datenstartzeile: 7');
+    print('Verarbeite 1 Einkäufe für Swisscard CHF in März 2025...');
+
+    // Ergänzung: Falls der Einkauf noch nicht erfasst wurde, führe diesen Vorgang aus.
+    if (!einkaufErfasst) {
+      registerEinkauf();
+    }
+  }
+
+  void registerEinkauf() {
+    setState(() {
+      einkaufErfasst = true;
+    });
+    print('Einkauf erfasst.');
+    // Hier könnte auch eine Benachrichtigung an die UI erfolgen.
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('LMS Finanzen')),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: verarbeiteBelegUndEinkauf,
+          child: Text('Beleg erfassen'),
+        ),
+      ),
+    );
+  }
+}

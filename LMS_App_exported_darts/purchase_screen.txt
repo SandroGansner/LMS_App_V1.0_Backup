@@ -1,0 +1,242 @@
+// lib/screens/purchase_screen.dart
+import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
+import '../models/purchase.dart';
+import '../services/purchase_service.dart';
+import '../services/export_service.dart';
+import '../services/file_upload_service.dart';
+import '../widgets/dropdown_selector.dart';
+import '../services/data_service.dart';
+
+class PurchaseScreen extends StatefulWidget {
+  @override
+  State<PurchaseScreen> createState() => _PurchaseScreenState();
+}
+
+class _PurchaseScreenState extends State<PurchaseScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Formularfelder
+  String itemName = '';
+  double? price;
+  String projectNumber = '';
+  String invoiceIssuer = '';
+  String? selectedEmployee;
+  String? selectedCostCenter;
+  String? selectedProject;
+  String? selectedCard;
+  String? receiptFileName;
+  String? selectedVAT; // Mehrwertsteuer
+
+  // Dropdown-Daten (mutable!)
+  List<Map<String, String>> employees = [];
+  List<Map<String, String>> costCenters = [];
+  List<Map<String, String>> projects = [];
+  List<String> paymentCards = [];
+  final List<String> vatOptions = ['0%', '5%', '7.7%', '19%'];
+
+  // Intern gespeicherte Einkäufe
+  List<Purchase> _purchases = [];
+  final PurchaseService _purchaseService = PurchaseService();
+  final FileUploadService _fileUploadService = FileUploadService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDropdownData();
+    _loadPurchases();
+  }
+
+  Future<void> _loadDropdownData() async {
+    final emp = await DataService().getEmployees();
+    final cc = await DataService().getCostCenters();
+    final proj = await DataService().getProjects();
+    final cards = await DataService().getPaymentCards();
+
+    // **Mutable** Kopien:
+    employees = List<Map<String, String>>.from(emp);
+    costCenters = List<Map<String, String>>.from(cc);
+    projects = List<Map<String, String>>.from(proj);
+    paymentCards = List<String>.from(cards);
+
+    // Optional sort (z.B. Mitarbeiter)
+    employees.sort((a, b) => a['name']!.compareTo(b['name']!));
+
+    setState(() {});
+  }
+
+  Future<void> _loadPurchases() async {
+    final purchases = await _purchaseService.getPurchases();
+    setState(() {
+      _purchases = purchases;
+    });
+  }
+
+  Future<void> _pickReceiptFile() async {
+    final typeGroup =
+        XTypeGroup(label: 'files', extensions: ['pdf', 'jpg', 'png']);
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    if (file != null) {
+      setState(() {
+        receiptFileName = file.name;
+      });
+      await _fileUploadService.uploadFile(file);
+    }
+  }
+
+  /// Speichert und exportiert direkt
+  Future<void> _saveAndExportPurchase() async {
+    if (_formKey.currentState!.validate() &&
+        selectedEmployee != null &&
+        selectedCostCenter != null &&
+        selectedProject != null &&
+        selectedCard != null &&
+        selectedVAT != null &&
+        price != null) {
+      final newPurchase = Purchase(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        itemName: itemName,
+        price: price!,
+        costCenter: selectedCostCenter!,
+        projectNumber: projectNumber,
+        invoiceIssuer: invoiceIssuer,
+        employee: selectedEmployee!,
+        cardUsed: selectedCard!,
+        receiptPath: receiptFileName ?? '',
+        vatRate: selectedVAT!,
+        date: DateTime.now(),
+      );
+
+      await _purchaseService.addPurchase(newPurchase);
+      await _loadPurchases();
+
+      // Reset
+      _formKey.currentState!.reset();
+      setState(() {
+        selectedEmployee = null;
+        selectedCostCenter = null;
+        selectedProject = null;
+        selectedCard = null;
+        receiptFileName = null;
+        price = null;
+        itemName = '';
+        projectNumber = '';
+        invoiceIssuer = '';
+        selectedVAT = null;
+      });
+
+      // Excel-Export
+      await ExportService().exportPurchasesFancy(_purchases);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Vielen Dank, Ihr Einkauf wurde erfolgreich erfasst und fancy exportiert!')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Container(
+        padding: EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Einkauf erfassen",
+                  style: Theme.of(context).textTheme.headlineSmall),
+              SizedBox(height: 16),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Artikelname'),
+                onChanged: (val) => itemName = val,
+                validator: (val) => (val == null || val.isEmpty)
+                    ? 'Bitte Artikelname eingeben'
+                    : null,
+              ),
+              SizedBox(height: 10),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Preis (CHF)'),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => price = double.tryParse(val),
+                validator: (val) =>
+                    (val == null || double.tryParse(val) == null)
+                        ? 'Bitte gültigen Preis eingeben'
+                        : null,
+              ),
+              SizedBox(height: 10),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Rechnungssteller'),
+                onChanged: (val) => invoiceIssuer = val,
+                validator: (val) => (val == null || val.isEmpty)
+                    ? 'Bitte Rechnungssteller angeben'
+                    : null,
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: employees.map((e) => e['name']!).toList(),
+                value: selectedEmployee,
+                hint: 'Mitarbeiter wählen',
+                onChanged: (val) => setState(() => selectedEmployee = val),
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: costCenters
+                    .map((c) => "${c['id']} - ${c['description']}")
+                    .toList(),
+                value: selectedCostCenter,
+                hint: 'Kostenstelle wählen',
+                onChanged: (val) => setState(() => selectedCostCenter = val),
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: projects
+                    .map((p) => "${p['id']} - ${p['description']}")
+                    .toList(),
+                value: selectedProject,
+                hint: 'Projekt wählen',
+                onChanged: (val) => setState(() => selectedProject = val),
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: paymentCards,
+                value: selectedCard,
+                hint: 'Zahlungskarte wählen',
+                onChanged: (val) => setState(() => selectedCard = val),
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: vatOptions,
+                value: selectedVAT,
+                hint: 'Mehrwertsteuer wählen',
+                onChanged: (val) => setState(() => selectedVAT = val),
+              ),
+              SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(receiptFileName ?? 'Rechnung auswählen'),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.attach_file),
+                    onPressed: _pickReceiptFile,
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _saveAndExportPurchase,
+                  child: Text('Einkauf erfassen'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

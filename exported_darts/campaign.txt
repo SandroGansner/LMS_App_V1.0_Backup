@@ -1,0 +1,50 @@
+// models/campaign.dart
+class Campaign {
+  final String id;
+  final String name;
+  final DateTime startDate;
+  final DateTime endDate;
+  final double adBudget;
+  final String costCenter;
+  final String metaAccount;
+  final String targetUrl;
+  final String assetPath;
+
+  Campaign({
+    required this.id,
+    required this.name,
+    required this.startDate,
+    required this.endDate,
+    required this.adBudget,
+    required this.costCenter,
+    required this.metaAccount,
+    required this.targetUrl,
+    required this.assetPath,
+  });
+
+  factory Campaign.fromJson(Map<String, dynamic> json) {
+    return Campaign(
+      id: json['id'],
+      name: json['name'],
+      startDate: DateTime.parse(json['startDate']),
+      endDate: DateTime.parse(json['endDate']),
+      adBudget: (json['adBudget'] as num).toDouble(),
+      costCenter: json['costCenter'],
+      metaAccount: json['metaAccount'],
+      targetUrl: json['targetUrl'],
+      assetPath: json['assetPath'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate.toIso8601String(),
+        'adBudget': adBudget,
+        'costCenter': costCenter,
+        'metaAccount': metaAccount,
+        'targetUrl': targetUrl,
+        'assetPath': assetPath,
+      };
+}

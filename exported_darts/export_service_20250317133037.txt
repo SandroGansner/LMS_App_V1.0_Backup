@@ -1,0 +1,324 @@
+import 'dart:io';
+import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
+import 'package:flutter/foundation.dart';
+import 'package:open_file/open_file.dart';
+import '../models/purchase.dart';
+import '../models/expense.dart';
+import '../models/campaign.dart';
+import '../constants/app_constants.dart';
+
+class ExportService {
+  static const List<String> _monthNames = [
+    'Januar',
+    'Februar',
+    'März',
+    'April',
+    'Mai',
+    'Juni',
+    'Juli',
+    'August',
+    'September',
+    'Oktober',
+    'November',
+    'Dezember'
+  ];
+
+  Future<xlsio.Workbook> _loadOrCreateWorkbook(String filePath) async {
+    final file = File(filePath);
+    if (file.existsSync()) {
+      final bytes = await file.readAsBytes();
+      final workbook = xlsio.Workbook();
+      workbook.worksheets[0].importList(bytes, 1, 1, false); // Daten laden
+      return workbook;
+    } else {
+      return xlsio.Workbook();
+    }
+  }
+
+  Future<void> exportPurchases({required List<Purchase> purchases}) async {
+    if (purchases.isEmpty) {
+      debugPrint("❌ Keine Einkäufe vorhanden – Export abgebrochen.");
+      return;
+    }
+
+    debugPrint("🔄 Starte Gruppierung der Einkäufe...");
+    Map<String, Map<String, List<Purchase>>> groupedPurchases = {};
+    for (var p in purchases) {
+      String monthYear = "${_monthNames[p.date.month - 1]} ${p.date.year}";
+      groupedPurchases
+          .putIfAbsent(p.cardUsed, () => {})
+          .putIfAbsent(monthYear, () => [])
+          .add(p);
+    }
+
+    debugPrint(
+        "✅ Gruppierung abgeschlossen. Verarbeite ${groupedPurchases.length} Karten...");
+    for (var card in groupedPurchases.keys) {
+      for (var monthYear in groupedPurchases[card]!.keys) {
+        final fileName = "${card}_$monthYear.xlsx";
+        final dirPath = await AppConstants.getExportPath()
+;
+
+        if (!Directory(dirPath).existsSync()) {
+          Directory(dirPath).createSync(recursive: true);
+        }
+
+        final filePath = '$dirPath/$fileName';
+        debugPrint("📂 Exportiere nach: $filePath");
+
+        final workbook = xlsio.Workbook();
+        final sheet = workbook.worksheets[0];
+
+        sheet.getRangeByName('A1').setText("Kreditkarten-Abrechnung");
+        sheet.getRangeByName('A1').cellStyle.bold = true;
+
+        int rowIndex = 3;
+        for (var purchase in groupedPurchases[card]![monthYear]!) {
+          sheet.getRangeByIndex(rowIndex, 1).setText(purchase.id);
+          sheet.getRangeByIndex(rowIndex, 2).setText(purchase.itemName);
+          sheet.getRangeByIndex(rowIndex, 3).setNumber(purchase.price);
+          rowIndex++;
+        }
+
+        final bytes = workbook.saveAsStream();
+        File(filePath).writeAsBytesSync(bytes);
+        debugPrint("✅ Datei gespeichert: $filePath");
+
+        try {
+          OpenFile.open(filePath);
+        } catch (e) {
+          debugPrint("⚠️ Fehler beim Öffnen der Datei: $e");
+        }
+
+        // Fix für 'Cannot clear an unmodifiable list'
+        if (workbook.worksheets.count > 0) {
+          while (workbook.worksheets.count > 0) {
+            workbook.worksheets.removeAt(0);
+          }
+        }
+        workbook.dispose();
+      }
+    }
+  }
+
+  Future<void> exportExpensesFancy(List<Expense> expenses) async {
+    if (expenses.isEmpty) {
+      debugPrint("Keine Spesen vorhanden – Export abgebrochen.");
+      return;
+    }
+
+    debugPrint("Starte Gruppierung der Spesen...");
+    Map<String, Map<String, List<Expense>>> groupedExpenses = {};
+    for (var exp in expenses) {
+      String cardUsed = exp.cardUsed ?? "Keine Karte"; // Standardwert für null
+      String monthYear = "${_monthNames[exp.date.month - 1]} ${exp.date.year}";
+      groupedExpenses
+          .putIfAbsent(cardUsed, () => {})
+          .putIfAbsent(monthYear, () => [])
+          .add(exp);
+    }
+
+    debugPrint(
+        "Gruppierung abgeschlossen. Verarbeite ${groupedExpenses.length} Karten...");
+    for (var card in groupedExpenses.keys) {
+      for (var monthYear in groupedExpenses[card]!.keys) {
+        final fileName = "Expenses_${card}_$monthYear.xlsx";
+        final filePath = '${await AppConstants.getExportPath()
+}\\$fileName';
+        debugPrint("Exportiere Spesen nach: $filePath");
+
+        final workbook = await _loadOrCreateWorkbook(filePath);
+        final sheet = workbook.worksheets.count > 0
+            ? workbook.worksheets[0]
+            : workbook.worksheets.addWithName('Abrechnung');
+
+        if (sheet.getRangeByName('A1').getText() == null) {
+          debugPrint("Erstelle Kopfbereich für $fileName...");
+          final xlsio.Range row1 = sheet.getRangeByName('A1:E1');
+          row1.merge();
+          row1.setText("Spesen-Abrechnung");
+          row1.cellStyle.bold = true;
+          row1.cellStyle.fontSize = 16;
+          row1.cellStyle.hAlign = xlsio.HAlignType.center;
+
+          final xlsio.Range row2 = sheet.getRangeByName('A2:E2');
+          row2.merge();
+          row2.setText("Lenzerheide Marketing-Support AG");
+          row2.cellStyle.bold = true;
+          row2.cellStyle.fontSize = 12;
+          row2.cellStyle.hAlign = xlsio.HAlignType.center;
+
+          final xlsio.Range row3 = sheet.getRangeByName('A3:E3');
+          row3.merge();
+          row3.setText("GJ ${DateTime.now().year}/${DateTime.now().year + 1}");
+          row3.cellStyle.bold = true;
+          row3.cellStyle.fontSize = 12;
+          row3.cellStyle.hAlign = xlsio.HAlignType.center;
+
+          int headerRow = 5;
+          final List<String> headers = [
+            "Mitarbeiter",
+            "Kostenstelle / Projekt",
+            "Datum",
+            "Beschreibung",
+            "BETRAG CHF"
+          ];
+          for (int col = 0; col < headers.length; col++) {
+            final cell = sheet.getRangeByIndex(headerRow, col + 1);
+            cell.setText(headers[col]);
+            cell.cellStyle.bold = true;
+            cell.cellStyle.fontColor = '#FFFFFF';
+            cell.cellStyle.backColor = '#F2213B';
+            cell.cellStyle.hAlign = xlsio.HAlignType.center;
+          }
+        }
+
+        int dataStartRow = sheet.getLastRow() + 1;
+        if (dataStartRow <= 5) {
+          dataStartRow = 6;
+        }
+        debugPrint("Datenstartzeile: $dataStartRow");
+
+        final expensesForCardAndMonth = groupedExpenses[card]![monthYear]!;
+        debugPrint(
+            "Verarbeite ${expensesForCardAndMonth.length} Spesen für $card in $monthYear...");
+        for (int i = 0; i < expensesForCardAndMonth.length; i++) {
+          final exp = expensesForCardAndMonth[i];
+          int rowIndex = dataStartRow + i;
+          sheet.getRangeByIndex(rowIndex, 1).setText(exp.employeeName);
+          sheet
+              .getRangeByIndex(rowIndex, 2)
+              .setText("${exp.costCenter} / ${exp.projectNumber}");
+          sheet.getRangeByIndex(rowIndex, 3).setText(
+              "${exp.date.year}-${exp.date.month.toString().padLeft(2, '0')}-${exp.date.day.toString().padLeft(2, '0')}");
+          sheet.getRangeByIndex(rowIndex, 4).setText(exp.description);
+          sheet.getRangeByIndex(rowIndex, 5).setNumber(exp.amount);
+        }
+
+        final int lastDataRow =
+            dataStartRow + expensesForCardAndMonth.length - 1;
+        final int sumRow = lastDataRow + 1;
+        sheet.getRangeByIndex(sumRow, 4).setText("Total");
+        sheet.getRangeByIndex(sumRow, 4).cellStyle.bold = true;
+        final String sumFormula = '=SUM(E6:E$lastDataRow)';
+        sheet.getRangeByIndex(sumRow, 5).setFormula(sumFormula);
+        sheet.getRangeByIndex(sumRow, 5).cellStyle.bold = true;
+
+        for (int i = 1; i <= 5; i++) {
+          sheet.autoFitColumn(i);
+        }
+
+        final bytes = workbook.saveAsStream();
+        debugPrint("Speichere Datei: $filePath");
+        await File(filePath).writeAsBytes(bytes);
+        debugPrint("Spesen exportiert nach: $filePath");
+        OpenFile.open(filePath);
+        workbook.dispose();
+      }
+    }
+  }
+
+  Future<void> exportCampaignsFancy(List<Campaign> campaigns) async {
+    if (campaigns.isEmpty) {
+      debugPrint("Keine Kampagnen vorhanden – Export abgebrochen.");
+      return;
+    }
+
+    debugPrint("Starte Gruppierung der Kampagnen...");
+    Map<String, List<Campaign>> groupedCampaigns = {};
+    for (var c in campaigns) {
+      String monthYear =
+          "${_monthNames[c.startDate.month - 1]} ${c.startDate.year}";
+      groupedCampaigns.putIfAbsent(monthYear, () => []).add(c);
+    }
+
+    debugPrint(
+        "Gruppierung abgeschlossen. Verarbeite ${groupedCampaigns.length} Monate...");
+    for (var monthYear in groupedCampaigns.keys) {
+      final fileName = "Campaigns_$monthYear.xlsx";
+      final filePath = '${await AppConstants.getExportPath()
+}\\$fileName';
+      debugPrint("Exportiere Kampagnen nach: $filePath");
+
+      final workbook = await _loadOrCreateWorkbook(filePath);
+      final sheet = workbook.worksheets.count > 0
+          ? workbook.worksheets[0]
+          : workbook.worksheets.addWithName('Abrechnung');
+
+      if (sheet.getRangeByName('A1').getText() == null) {
+        debugPrint("Erstelle Kopfbereich für $fileName...");
+        final xlsio.Range row1 = sheet.getRangeByName('A1:G1');
+        row1.merge();
+        row1.setText("Kampagnen-Übersicht");
+        row1.cellStyle.bold = true;
+        row1.cellStyle.fontSize = 16;
+        row1.cellStyle.hAlign = xlsio.HAlignType.center;
+
+        final xlsio.Range row2 = sheet.getRangeByName('A2:G2');
+        row2.merge();
+        row2.setText("Lenzerheide Marketing-Support AG");
+        row2.cellStyle.bold = true;
+        row2.cellStyle.fontSize = 12;
+        row2.cellStyle.hAlign = xlsio.HAlignType.center;
+
+        final xlsio.Range row3 = sheet.getRangeByName('A3:G3');
+        row3.merge();
+        row3.setText("GJ ${DateTime.now().year}/${DateTime.now().year + 1}");
+        row3.cellStyle.bold = true;
+        row3.cellStyle.fontSize = 12;
+        row3.cellStyle.hAlign = xlsio.HAlignType.center;
+
+        int headerRow = 4;
+        final List<String> headers = [
+          "Name",
+          "Startdatum",
+          "Enddatum",
+          "Budget (CHF)",
+          "Kostenstelle",
+          "Meta-Konto"
+        ];
+        for (int col = 0; col < headers.length; col++) {
+          final cell = sheet.getRangeByIndex(headerRow, col + 1);
+          cell.setText(headers[col]);
+          cell.cellStyle.bold = true;
+          cell.cellStyle.fontColor = '#FFFFFF';
+          cell.cellStyle.backColor = '#F2213B';
+          cell.cellStyle.hAlign = xlsio.HAlignType.center;
+        }
+      }
+
+      int dataStartRow = sheet.getLastRow() + 1;
+      if (dataStartRow <= 4) {
+        dataStartRow = 5;
+      }
+      debugPrint("Datenstartzeile: $dataStartRow");
+
+      final campaignsForMonth = groupedCampaigns[monthYear]!;
+      debugPrint(
+          "Verarbeite ${campaignsForMonth.length} Kampagnen für $monthYear...");
+      for (int i = 0; i < campaignsForMonth.length; i++) {
+        final c = campaignsForMonth[i];
+        int rowIndex = dataStartRow + i;
+        sheet.getRangeByIndex(rowIndex, 1).setText(c.name);
+        sheet.getRangeByIndex(rowIndex, 2).setText(
+            "${c.startDate.year}-${c.startDate.month.toString().padLeft(2, '0')}-${c.startDate.day.toString().padLeft(2, '0')}");
+        sheet.getRangeByIndex(rowIndex, 3).setText(
+            "${c.endDate.year}-${c.endDate.month.toString().padLeft(2, '0')}-${c.endDate.day.toString().padLeft(2, '0')}");
+        sheet.getRangeByIndex(rowIndex, 4).setNumber(c.adBudget);
+        sheet.getRangeByIndex(rowIndex, 5).setText(c.costCenter);
+        sheet.getRangeByIndex(rowIndex, 6).setText(c.metaAccount);
+      }
+
+      for (int i = 1; i <= 6; i++) {
+        sheet.autoFitColumn(i);
+      }
+
+      final bytes = workbook.saveAsStream();
+      debugPrint("Speichere Datei: $filePath");
+      await File(filePath).writeAsBytes(bytes);
+      debugPrint("Kampagnen exportiert nach: $filePath");
+      OpenFile.open(filePath);
+      workbook.dispose();
+    }
+  }
+}

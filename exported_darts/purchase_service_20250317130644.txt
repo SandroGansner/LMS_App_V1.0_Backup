@@ -1,0 +1,36 @@
+import '../models/purchase.dart';
+import 'dart:convert';
+import 'dart:io';
+
+class PurchaseService {
+  final List<Purchase> _purchases = [];
+  final String _filePath = 'purchases.json';
+
+  Future<List<Purchase>> getPurchases() async {
+    await _loadPurchases();
+    return _purchases;
+  }
+
+  Future<void> addPurchase(Purchase purchase) async {
+    _purchases.add(purchase);
+    await _savePurchases();
+    print(
+        "✅ Einkauf erfasst: ${purchase.itemName}, Betrag: ${purchase.price} CHF");
+  }
+
+  Future<void> _savePurchases() async {
+    final file = File(_filePath);
+    await file
+        .writeAsString(jsonEncode(_purchases.map((p) => p.toJson()).toList()));
+  }
+
+  Future<void> _loadPurchases() async {
+    final file = File(_filePath);
+    if (file.existsSync()) {
+      final content = await file.readAsString();
+      final List<dynamic> jsonData = jsonDecode(content);
+      _purchases.clear();
+      _purchases.addAll(jsonData.map((e) => Purchase.fromJson(e)));
+    }
+  }
+}

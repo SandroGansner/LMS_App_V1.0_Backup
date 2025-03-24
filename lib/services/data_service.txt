@@ -1,0 +1,135 @@
+// lib/services/data_service.dart
+class DataService {
+  Future<List<Map<String, String>>> getEmployees() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      // Geschäftsleitung
+      {'name': 'Marc Schlüssel', 'role': 'CEO'},
+      {'name': 'Nicole Gysi', 'role': 'CMO'},
+      {
+        'name': 'Marina Morgenthaler',
+        'role': 'Leiterin Eventteam / Eventmanagerin'
+      },
+      {
+        'name': 'Andrea Pallioppi',
+        'role': 'Managerin Support Finanzen und Services'
+      },
+      {
+        'name': 'Dave Spielmann',
+        'role': 'Leiter Angebots- und Erlebnisentwicklung / Stv. CEO'
+      },
+      {'name': 'Lucia Züger', 'role': 'Leiterin Tourist Services'},
+      // Angebots- und Erlebnisentwicklung
+      {
+        'name': 'Ruedi Gertsch',
+        'role': 'Projektmanager Angebots- und Erlebnisentwicklung'
+      },
+      {
+        'name': 'Sara Walker',
+        'role': 'Projektmanagerin Angebots- und Erlebnisentwicklung'
+      },
+      // Marketing und Kommunikation
+      {'name': 'Ornella Bonifazi', 'role': 'Design & Branding'},
+      {'name': 'Lara Brun', 'role': 'Marketing Managerin'},
+      {'name': 'Sandro Gansner', 'role': 'Kampagnen Manager'},
+      {'name': 'Mara Petrillo', 'role': 'Junior Digital Marketing Managerin'},
+      {'name': 'Marc Schürmann', 'role': 'Head of Digital'},
+      {'name': 'Max Schwarz', 'role': 'Digital Marketing Manager'},
+      {'name': 'Sarah Vitali', 'role': 'Design & Branding'},
+      // Event / Support
+      {'name': 'Sabine Batiste', 'role': 'Eventmanagerin'},
+      {'name': 'Sebastian Jost', 'role': 'Eventmanager'},
+      {'name': 'Kim Osinga', 'role': 'Eventmanagerin'},
+      {'name': 'Michael Zumsteg', 'role': 'Eventmanager'},
+      // Informationsbüros & Tourist Services
+      {'name': 'Ines Hemmi', 'role': 'Infostelle Lenzerheide'},
+      {'name': 'Céline Jäger', 'role': 'Managerin Online Marktplatz'},
+      {'name': 'Elke Schatz', 'role': 'Infostelle Lenzerheide'},
+      {'name': 'Anne-Rose Simeon', 'role': 'Infostelle Lenzerheide'},
+      // Lernende
+      {'name': 'Nauro Bargetzi', 'role': 'Lernender LMS AG'},
+      {'name': 'Sarina Brasser', 'role': 'Lernende LMS AG'},
+    ];
+  }
+
+  Future<List<Map<String, String>>> getCostCenters() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      {'id': '11010', 'description': 'Gästebetreuung / Touristinfo'},
+      {'id': '11020', 'description': 'Verkauf von Drittleistungen'},
+      {'id': '11030', 'description': 'Gästeanimation Globi Kinderparty'},
+      {'id': '11040', 'description': 'Gästeanimation Ostern mit Globi'},
+      {'id': '11041', 'description': 'Gästeanimation 1. August'},
+      {'id': '11050', 'description': 'Gästeanimation Dolce Far Sport'},
+      {'id': '11060', 'description': 'Gästebetreuung Heidseeolympiade'},
+      {'id': '11070', 'description': 'Gästebetreuung Märli im Wald'},
+      {'id': '11080', 'description': 'Administration Langlaufregion'},
+      {'id': '21010', 'description': 'Ferienwohnungsstiftungen'},
+      {'id': '21020', 'description': 'STV Klassifikation'},
+      {'id': '31010', 'description': 'PR und Media'},
+      {'id': '41010', 'description': 'Basis-Kommunikation'},
+      {'id': '41020', 'description': 'SGF Bike'},
+      {'id': '41030', 'description': 'SGF Alpin'},
+      {'id': '41040', 'description': 'SGF Nordic'},
+      {'id': '41050', 'description': 'SGF Familien'},
+      {'id': '41060', 'description': 'Verkauf und Vertrieb'},
+      {'id': '41070', 'description': 'Partnerschaften'},
+      {'id': '41080', 'description': 'Märktepartnerschaften'},
+      {'id': '41090', 'description': 'Arosa Lenzerheide Pool'},
+      {'id': '41100', 'description': 'W.O.W. (Wird aktuell viel genutzt)'},
+      {'id': '51010', 'description': 'Mountainbike Weltcup'},
+      {'id': '51012', 'description': 'Bike Kingdom Feast'},
+      {'id': '51040', 'description': 'Zauberwald'},
+      {'id': '51041', 'description': 'Live is Life'},
+      {'id': '51042', 'description': 'Lenzerheide Motor Classics'},
+      {'id': '51043', 'description': 'Secret Garden'},
+      {'id': '51050', 'description': 'Sponsoring'},
+    ];
+  }
+
+  Future<List<Map<String, String>>> getProjects() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      {'id': '3010', 'description': 'Beiträge Gemeinden'},
+      {'id': '3600', 'description': 'Ertrag'},
+      {'id': '3620', 'description': 'Mieterträge'},
+      {'id': '4000', 'description': 'Einkauf Verkaufsartikel'},
+      {'id': '5000', 'description': 'Bruttolöhne'},
+      {'id': '5100', 'description': 'AHV/ALV'},
+      {'id': '5200', 'description': 'Unfallversicherung'},
+      {'id': '5300', 'description': 'Krankenkasse'},
+      {'id': '5400', 'description': 'Pensionskasse'},
+      {'id': '5800', 'description': 'Personalbeschaffung'},
+      {'id': '5810', 'description': 'Aus- und Weiterbildung'},
+      {'id': '5820', 'description': 'Spesenentschädigung'},
+      {'id': '5840', 'description': 'Übriger Personalaufwand'},
+      {'id': '6050', 'description': 'Miete von Gebäuden'},
+      {'id': '6060', 'description': 'Miete von Geräten / Fremdleistung'},
+      {'id': '6100', 'description': 'Versicherungen'},
+      {'id': '6120', 'description': 'Gebühren und Abgaben'},
+      {'id': '6570', 'description': 'Eventbeiträge'},
+      {'id': '6585', 'description': 'Projektkosten'},
+      {'id': '6635', 'description': 'Bild/Video'},
+      {'id': '6655', 'description': 'Verkaufskommission'},
+    ];
+  }
+
+  Future<List<String>> getPaymentCards() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      'Swisscard Euro',
+      'Swisscard CHF',
+      'Cornercard CHF',
+    ];
+  }
+
+  Future<List<Map<String, String>>> getMetaAccounts() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      {'id': 'MA001', 'description': 'Lenzerheide'},
+      {'id': 'MA002', 'description': 'Bike Kingdom'},
+      {'id': 'MA003', 'description': 'Brambrüesch'},
+      {'id': 'MA004', 'description': 'Biathlon'},
+    ];
+  }
+}

@@ -1,0 +1,43 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import '../models/purchase.dart';
+
+class PurchaseService {
+  Future<String> _getFilePath() async {
+    final directory = await getApplicationDocumentsDirectory();
+    return '${directory.path}/purchases.json';
+  }
+
+  Future<List<Purchase>> getPurchases() async {
+    try {
+      final filePath = await _getFilePath();
+      final file = File(filePath);
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final List<dynamic> jsonList = jsonDecode(jsonString);
+        return jsonList.map((json) => Purchase.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint("⚠️ Fehler beim Laden der Einkäufe: $e");
+      return [];
+    }
+  }
+
+  Future<void> addPurchase(Purchase purchase) async {
+    try {
+      final filePath = await _getFilePath();
+      final file = File(filePath);
+      List<Purchase> purchases = await getPurchases();
+      purchases.add(purchase);
+      final jsonString = jsonEncode(purchases.map((p) => p.toJson()).toList());
+      await file.writeAsString(jsonString);
+      debugPrint(
+          "✅ Einkauf hinzugefügt: ${purchase.itemName}, ${purchase.price} CHF");
+    } catch (e) {
+      debugPrint("⚠️ Fehler beim Speichern des Einkaufs: $e");
+    }
+  }
+}

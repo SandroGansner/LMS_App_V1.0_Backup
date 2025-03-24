@@ -1,0 +1,50 @@
+// models/expense.dart
+class Expense {
+  final String id;
+  final String employeeName;
+  final String costCenter;
+  final String projectNumber;
+  final double amount;
+  final DateTime date;
+  final String description;
+  final String receiptPath;
+  final String vatRate; // NEU: Mehrwertsteuer
+
+  Expense({
+    required this.id,
+    required this.employeeName,
+    required this.costCenter,
+    required this.projectNumber,
+    required this.amount,
+    required this.date,
+    required this.description,
+    required this.receiptPath,
+    required this.vatRate,
+  });
+
+  factory Expense.fromJson(Map<String, dynamic> json) {
+    return Expense(
+      id: json['id'],
+      employeeName: json['employeeName'],
+      costCenter: json['costCenter'],
+      projectNumber: json['projectNumber'],
+      amount: (json['amount'] as num).toDouble(),
+      date: DateTime.parse(json['date']),
+      description: json['description'],
+      receiptPath: json['receiptPath'],
+      vatRate: json['vatRate'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'employeeName': employeeName,
+        'costCenter': costCenter,
+        'projectNumber': projectNumber,
+        'amount': amount,
+        'date': date.toIso8601String(),
+        'description': description,
+        'receiptPath': receiptPath,
+        'vatRate': vatRate,
+      };
+}

@@ -1,0 +1,36 @@
+import '../models/expense.dart';
+import 'dart:convert';
+import 'dart:io';
+
+class ExpenseService {
+  final List<Expense> _expenses = [];
+  final String _filePath = 'expenses.json';
+
+  Future<List<Expense>> getExpenses() async {
+    await _loadExpenses();
+    return _expenses;
+  }
+
+  Future<void> addExpense(Expense expense) async {
+    _expenses.add(expense);
+    await _saveExpenses();
+    print(
+        "✅ Spese erfasst: ${expense.description}, Betrag: ${expense.amount} CHF");
+  }
+
+  Future<void> _saveExpenses() async {
+    final file = File(_filePath);
+    await file
+        .writeAsString(jsonEncode(_expenses.map((e) => e.toJson()).toList()));
+  }
+
+  Future<void> _loadExpenses() async {
+    final file = File(_filePath);
+    if (file.existsSync()) {
+      final content = await file.readAsString();
+      final List<dynamic> jsonData = jsonDecode(content);
+      _expenses.clear();
+      _expenses.addAll(jsonData.map((e) => Expense.fromJson(e)));
+    }
+  }
+}

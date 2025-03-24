@@ -1,0 +1,15 @@
+import 'dart:io';
+import 'package:file_selector/file_selector.dart';
+
+class FileUploadService {
+  Future<void> uploadFile(XFile file) async {
+    // Asynchrone Prüfung, ob die Datei existiert
+    if (file.path == null || !(await File(file.path).exists())) {
+      print("Datei nicht gefunden: ${file.name}");
+      return;
+    }
+    // Simulation: Ersetze diesen Code durch Deine tatsächliche Upload-Logik.
+    await Future.delayed(Duration(seconds: 1));
+    print("Datei erfolgreich hochgeladen: ${file.name}");
+  }
+}

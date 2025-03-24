@@ -1,0 +1,11 @@
+// lib/app_constants.dart
+// oder, wenn du einen Ordner für Konstanten bevorzugst: lib/constants/app_constants.dart
+
+class AppConstants {
+  // Exportpfad – passe diesen Pfad an deinen lokalen OneDrive-Pfad an
+  static const String exportPath =
+      r'C:\Users\sandro.gansner\OneDrive - ARLE\Freigegebene Dokumente\Finanzen';
+
+  // Weitere Konstanten, die in der App verwendet werden
+  static const String appName = 'LMS Finanzen';
+}

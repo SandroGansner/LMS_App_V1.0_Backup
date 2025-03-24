@@ -1,0 +1,294 @@
+// lib/screens/campaign_screen.dart
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:file_selector/file_selector.dart';
+import '../models/campaign.dart';
+import '../services/campaign_service.dart';
+import '../services/export_service.dart';
+import '../services/file_upload_service.dart';
+import '../widgets/dropdown_selector.dart';
+import '../services/data_service.dart';
+
+class CampaignScreen extends StatefulWidget {
+  @override
+  State<CampaignScreen> createState() => _CampaignScreenState();
+}
+
+class _CampaignScreenState extends State<CampaignScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Formularfelder
+  String campaignName = '';
+  DateTime? startDate;
+  DateTime? endDate;
+  double? adBudget;
+  String? selectedCostCenter;
+  String? selectedEmployee;
+  String? selectedProject;
+  String? selectedMetaAccount;
+  String targetUrl = '';
+  String? assetFileName;
+
+  // Dropdown-Daten (mutable Kopien)
+  List<Map<String, String>> costCenters = [];
+  List<Map<String, String>> employees = [];
+  List<Map<String, String>> projects = [];
+  List<Map<String, String>> metaAccounts = [];
+
+  // Intern gespeicherte Kampagnen
+  List<Campaign> _campaigns = [];
+  final CampaignService _campaignService = CampaignService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllData();
+    _loadCampaigns();
+  }
+
+  Future<void> _loadAllData() async {
+    final cc = await DataService().getCostCenters();
+    final emp = await DataService().getEmployees();
+    final proj = await DataService().getProjects();
+    final meta = await DataService().getMetaAccounts();
+
+    // Erzeuge mutable Kopien
+    costCenters = List<Map<String, String>>.from(cc);
+    employees = List<Map<String, String>>.from(emp);
+    projects = List<Map<String, String>>.from(proj);
+    metaAccounts = List<Map<String, String>>.from(meta);
+
+    // Optional: sortiere Mitarbeiter alphabetisch
+    employees.sort((a, b) => a['name']!.compareTo(b['name']!));
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _loadCampaigns() async {
+    final campaigns = await _campaignService.getCampaigns();
+    if (mounted) {
+      setState(() {
+        _campaigns = campaigns;
+      });
+    }
+  }
+
+  Future<void> _pickAssetFile() async {
+    final typeGroup =
+        XTypeGroup(label: 'files', extensions: ['jpg', 'png', 'pdf']);
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    if (file != null) {
+      if (mounted) {
+        setState(() {
+          assetFileName = file.name;
+        });
+      }
+      await FileUploadService().uploadFile(file);
+    }
+  }
+
+  Future<void> _saveAndExportCampaign() async {
+    if (_formKey.currentState!.validate() &&
+        startDate != null &&
+        endDate != null &&
+        selectedCostCenter != null &&
+        adBudget != null &&
+        selectedEmployee != null &&
+        selectedProject != null &&
+        selectedMetaAccount != null) {
+      final newCampaign = Campaign(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: campaignName,
+        startDate: startDate!,
+        endDate: endDate!,
+        adBudget: adBudget!,
+        costCenter: selectedCostCenter!,
+        metaAccount: selectedMetaAccount!,
+        targetUrl: targetUrl,
+        assetPath: assetFileName ?? '',
+      );
+      await _campaignService.addCampaign(newCampaign);
+      await _loadCampaigns();
+      _formKey.currentState!.reset();
+      if (mounted) {
+        setState(() {
+          campaignName = '';
+          startDate = null;
+          endDate = null;
+          adBudget = null;
+          selectedCostCenter = null;
+          selectedEmployee = null;
+          selectedProject = null;
+          selectedMetaAccount = null;
+          targetUrl = '';
+          assetFileName = null;
+        });
+      }
+      await ExportService().exportCampaignsFancy(_campaigns);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Vielen Dank, Ihre Kampagne wurde erfolgreich erfasst und fancy exportiert!',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Container(
+        padding: EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Kampagne erfassen",
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Kampagnenname'),
+                onChanged: (val) => campaignName = val,
+                validator: (val) => (val == null || val.isEmpty)
+                    ? 'Bitte Kampagnenname eingeben'
+                    : null,
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: employees.map((e) => e['name']!).toList(),
+                value: selectedEmployee,
+                hint: 'Mitarbeiter wählen',
+                onChanged: (val) => setState(() => selectedEmployee = val),
+              ),
+              SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      startDate == null
+                          ? 'Startdatum wählen'
+                          : 'Start: ${DateFormat('yyyy-MM-dd').format(startDate!)}',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.calendar_today, color: Colors.white),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null && mounted) {
+                        setState(() => startDate = picked);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      endDate == null
+                          ? 'Enddatum wählen'
+                          : 'Ende: ${DateFormat('yyyy-MM-dd').format(endDate!)}',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.calendar_today, color: Colors.white),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now().add(Duration(days: 30)),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null && mounted) {
+                        setState(() => endDate = picked);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Werbebudget (CHF)'),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => adBudget = double.tryParse(val),
+                validator: (val) =>
+                    (val == null || double.tryParse(val) == null)
+                        ? 'Bitte gültigen Betrag eingeben'
+                        : null,
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: costCenters
+                    .map((c) => "${c['id']} - ${c['description']}")
+                    .toList(),
+                value: selectedCostCenter,
+                hint: 'Kostenstelle wählen',
+                onChanged: (val) => setState(() => selectedCostCenter = val),
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: projects
+                    .map((p) => "${p['id']} - ${p['description']}")
+                    .toList(),
+                value: selectedProject,
+                hint: 'Projekt wählen',
+                onChanged: (val) => setState(() => selectedProject = val),
+              ),
+              SizedBox(height: 10),
+              DropdownSelector<String>(
+                items: metaAccounts
+                    .map((m) => "${m['id']} - ${m['description']}")
+                    .toList(),
+                value: selectedMetaAccount,
+                hint: 'Meta-Konto wählen',
+                onChanged: (val) => setState(() => selectedMetaAccount = val),
+              ),
+              SizedBox(height: 10),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Ziel-URL'),
+                onChanged: (val) => targetUrl = val,
+              ),
+              SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      assetFileName ?? 'Asset-Datei auswählen',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.attach_file, color: Colors.white),
+                    onPressed: _pickAssetFile,
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _saveAndExportCampaign,
+                  child: Text('Kampagne erfassen'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

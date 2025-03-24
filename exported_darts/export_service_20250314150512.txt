@@ -1,0 +1,143 @@
+import 'dart:io';
+import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
+import 'package:flutter/foundation.dart';
+import 'package:open_file/open_file.dart';
+import 'package:intl/intl.dart';
+
+import '../models/purchase.dart';
+import '../models/expense.dart';
+import '../models/campaign.dart';
+import '../constants/app_constants.dart';
+
+class ExportService {
+  /// Exportiert eine formattierte Kreditkarten-Abrechnung für Einkäufe.
+  Future<void> exportPurchasesFancy({
+    required List<Purchase> purchases,
+    String anbieter = "Swisscard CHF",
+  }) async {
+    if (purchases.isEmpty) {
+      debugPrint("Keine Einkäufe vorhanden – Excel bleibt leer.");
+      return;
+    }
+
+    // Dynamischer Titel basierend auf dem aktuellen Monat und Jahr
+    final String currentMonth =
+        DateFormat('MMMM', 'de_DE').format(DateTime.now());
+    final String currentYear = DateTime.now().year.toString();
+    final String title = "$anbieter Monat $currentMonth $currentYear";
+
+    // Neues Workbook und Worksheet erstellen
+    final xlsio.Workbook workbook = xlsio.Workbook();
+    final xlsio.Worksheet sheet = workbook.worksheets[0];
+    sheet.name = 'Abrechnung';
+
+    // Kopfbereich
+    final xlsio.Range row1 = sheet.getRangeByName('A1:H1');
+    row1.merge();
+    row1.setText(title);
+    row1.cellStyle.bold = true;
+    row1.cellStyle.fontSize = 16;
+    row1.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    final xlsio.Range row2 = sheet.getRangeByName('A2:H2');
+    row2.merge();
+    row2.setText("Anbieter: $anbieter   Periode: $currentMonth $currentYear");
+    row2.cellStyle.bold = true;
+    row2.cellStyle.fontSize = 12;
+    row2.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    final xlsio.Range row3 = sheet.getRangeByName('A3:H3');
+    row3.merge();
+    row3.setText("Lenzerheide Marketing-Support AG");
+    row3.cellStyle.bold = true;
+    row3.cellStyle.fontSize = 12;
+    row3.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    final xlsio.Range row4 = sheet.getRangeByName('A4:H4');
+    row4.merge();
+    row4.setText("GJ ${DateTime.now().year}/${DateTime.now().year + 1}");
+    row4.cellStyle.bold = true;
+    row4.cellStyle.fontSize = 12;
+    row4.cellStyle.hAlign = xlsio.HAlignType.center;
+
+    // Überschriften (Zeile 6)
+    int headerRow = 6;
+    final List<String> headers = [
+      "Beleg",
+      "Rechnungssteller",
+      "Text",
+      "Konto",
+      "KST",
+      "Projekt",
+      "VAT",
+      "BETRAG CHF"
+    ];
+    for (int col = 0; col < headers.length; col++) {
+      final cell = sheet.getRangeByIndex(headerRow, col + 1);
+      cell.setText(headers[col]);
+      cell.cellStyle.bold = true;
+      cell.cellStyle.fontColor = '#FFFFFF';
+      cell.cellStyle.backColor = '#F2213B';
+      cell.cellStyle.hAlign = xlsio.HAlignType.center;
+    }
+
+    // Datenzeilen (ab Zeile 7)
+    int dataStartRow = headerRow + 1;
+    for (int i = 0; i < purchases.length; i++) {
+      final p = purchases[i];
+      int rowIndex = dataStartRow + i;
+      sheet.getRangeByIndex(rowIndex, 1).setText(p.id);
+      sheet.getRangeByIndex(rowIndex, 2).setText(p.invoiceIssuer);
+      sheet.getRangeByIndex(rowIndex, 3).setText(p.itemName);
+      sheet.getRangeByIndex(rowIndex, 4).setText(p.cardUsed);
+      sheet.getRangeByIndex(rowIndex, 5).setText(p.costCenter);
+      sheet.getRangeByIndex(rowIndex, 6).setText(p.projectNumber);
+      sheet.getRangeByIndex(rowIndex, 7).setText(p.vatRate);
+      sheet.getRangeByIndex(rowIndex, 8).setNumber(p.price);
+    }
+
+    // Summenzeile (unter den Daten)
+    final int lastDataRow = dataStartRow + purchases.length - 1;
+    final int sumRow = lastDataRow + 1;
+    sheet.getRangeByIndex(sumRow, 7).setText("Total");
+    sheet.getRangeByIndex(sumRow, 7).cellStyle.bold = true;
+    final String sumFormula = '=SUM(H${dataStartRow}:H${lastDataRow})';
+    sheet.getRangeByIndex(sumRow, 8).setFormula(sumFormula);
+    sheet.getRangeByIndex(sumRow, 8).cellStyle.bold = true;
+
+    // AutoFit der Spalten (A-H)
+    for (int i = 1; i <= 8; i++) {
+      sheet.autoFitColumn(i);
+    }
+
+    // Workbook speichern
+    final List<int>? bytes = workbook.saveAsStream();
+    workbook.dispose();
+
+    final exportDir = Directory(await AppConstants.getExportPath()
+);
+    if (!exportDir.existsSync()) {
+      exportDir.createSync(recursive: true);
+    }
+    final String fileName = "Einkauf_${currentMonth}_$currentYear.xlsx";
+    final String filePath = '${exportDir.path}\\$fileName';
+    final file = File(filePath);
+    await file.writeAsBytes(bytes!);
+    debugPrint("Excel-Datei exportiert nach: $filePath");
+
+    // Datei öffnen
+    OpenFile.open(filePath);
+  }
+
+  /// Exportiert Spesen-Daten in ein formatiertes Excel-Dokument.
+  Future<void> exportExpensesFancy(List<Expense> expenses) async {
+    // Dynamischer Titel und Dateiname analog zu exportPurchasesFancy
+    // Implementierung ähnlich wie oben
+  }
+
+  /// Exportiert Kampagnen-Daten in ein formatiertes Excel-Dokument.
+  Future<void> exportCampaignsFancy(List<Campaign> campaigns) async {
+    // Dynamischer Titel und Dateiname analog zu exportPurchasesFancy
+    // Implementierung ähnlich wie oben
+  }
+}

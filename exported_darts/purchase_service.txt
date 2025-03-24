@@ -1,0 +1,49 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import '../models/purchase.dart';
+
+class PurchaseService {
+  Future<String> _getFilePath() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/purchases.json';
+    debugPrint("📂 Speicherpfad für purchases.json: $path");
+    return path;
+  }
+
+  Future<List<Purchase>> getPurchases() async {
+    try {
+      final filePath = await _getFilePath();
+      final file = File(filePath);
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final List<dynamic> jsonList = jsonDecode(jsonString);
+        // Sicherstellen, dass die Liste veränderbar ist
+        return jsonList
+            .map((json) => Purchase.fromJson(json))
+            .toList(growable: true);
+      }
+      return <Purchase>[]; // Leere, veränderbare Liste
+    } catch (e) {
+      debugPrint("⚠️ Fehler beim Laden der Einkäufe: $e");
+      return <Purchase>[]; // Leere, veränderbare Liste
+    }
+  }
+
+  Future<void> addPurchase(Purchase purchase) async {
+    try {
+      final filePath = await _getFilePath();
+      final file = File(filePath);
+      List<Purchase> purchases = await getPurchases();
+      purchases
+          .add(purchase); // Sollte jetzt funktionieren, da Liste veränderbar
+      final jsonString = jsonEncode(purchases.map((p) => p.toJson()).toList());
+      await file.writeAsString(jsonString);
+      debugPrint(
+          "✅ Einkauf hinzugefügt: ${purchase.itemName}, ${purchase.price} CHF, Karte: ${purchase.cardUsed}");
+    } catch (e) {
+      debugPrint("⚠️ Fehler beim Speichern des Einkaufs: $e");
+    }
+  }
+}

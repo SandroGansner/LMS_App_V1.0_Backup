@@ -1,0 +1,18 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../constants/app_constants.dart';
+
+class BackendService {
+  final String baseUrl = AppConstants().backendUrl;
+
+  Future<dynamic> getData(String endpoint) async {
+    final response = await http.get(Uri.parse('$baseUrl/$endpoint'));
+    return json.decode(response.body);
+  }
+
+  Future<dynamic> postData(String endpoint, Map<String, dynamic> data) async {
+    final response = await http.post(Uri.parse('$baseUrl/$endpoint'),
+        headers: {'Content-Type': 'application/json'}, body: json.encode(data));
+    return json.decode(response.body);
+  }
+}

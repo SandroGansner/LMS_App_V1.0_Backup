@@ -1,0 +1,65 @@
+// lib/main.dart
+import 'package:flutter/material.dart';
+import 'screens/splash_screen.dart';
+import 'screens/home_screen.dart';
+
+void main() {
+  runApp(LMSSmartHelperApp());
+}
+
+class LMSSmartHelperApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'LMS Smart Helper',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        scaffoldBackgroundColor: const Color(0xFFF2213B), // Rot
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFFF2213B),
+          elevation: 0,
+          titleTextStyle: const TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          fillColor: const Color.fromARGB(255, 243, 128, 128),
+          filled: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          labelStyle: const TextStyle(color: Colors.white),
+          hintStyle: const TextStyle(color: Colors.white70),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFFF2213B),
+            textStyle:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Color(0xFFF2213B),
+          elevation: 0,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Color(0xFFF2213B),
+        ),
+        textTheme: const TextTheme(
+          headlineSmall: TextStyle(color: Colors.white),
+          bodyLarge: TextStyle(color: Colors.white),
+          bodyMedium: TextStyle(color: Colors.white),
+          labelLarge: TextStyle(color: Colors.white),
+        ),
+      ),
+      // Hier definieren wir die Routen
+      initialRoute: '/',
+      routes: {
+        '/': (context) => SplashScreen(),
+        '/home': (context) => HomeScreen(),
+      },
+    );
+  }
+}

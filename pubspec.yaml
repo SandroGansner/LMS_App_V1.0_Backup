@@ -1,0 +1,44 @@
+name: lms_finanzen_v1_0
+description: "Eine Business-Management-App für LMS Finanzen"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.18.0 <3.0.0"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/lenzerheide_logo.gif
+    - .env
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  path_provider: ^2.1.4
+  open_file: ^3.5.3
+  intl: ^0.20.2
+  path: ^1.9.0
+  http: ^1.2.2
+  syncfusion_flutter_xlsio: ^28.2.12
+  share_plus: ^10.0.2
+  supabase_flutter: ^2.8.0
+  flutter_dotenv: ^5.1.0
+  file_picker: ^9.2.1
+  file_selector: ^1.0.3
+  app_links: ^6.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  image_path: "assets/icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  macos:
+    generate: true
+    remove_alpha: true

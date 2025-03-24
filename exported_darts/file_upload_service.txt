@@ -1,0 +1,29 @@
+import 'dart:io';
+import 'package:file_selector/file_selector.dart';
+import '../constants/app_constants.dart';
+
+class FileUploadService {
+  Future<String?> uploadFile(XFile file, DateTime purchaseDate) async {
+    try {
+      // Erstelle Zielordner: z. B. "Rechnungen\2025_03"
+      String monthYear =
+          "${purchaseDate.year}_${purchaseDate.month.toString().padLeft(2, '0')}";
+      String targetDir =
+          '${AppConstants.receiptsBasePath}\\$monthYear'; // Windows-Pfad mit Backslash
+      Directory(targetDir).createSync(recursive: true);
+
+      // Zielpfad für die Datei
+      String fileName = file.name;
+      String targetPath = '$targetDir\\$fileName';
+
+      // Kopiere die Datei
+      await File(file.path).copy(targetPath);
+
+      // Rückgabe des relativen Pfads für das Purchase-Objekt
+      return '$monthYear\\$fileName';
+    } catch (e) {
+      print('Fehler beim Hochladen der Datei: $e');
+      return null; // Fallback: null wird zurückgegeben, und der Original-Dateiname bleibt im UI
+    }
+  }
+}
