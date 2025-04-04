@@ -1,8 +1,10 @@
+import 'dart:io'; // Für Plattformüberprüfung
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:permission_handler/permission_handler.dart'; // Import für Berechtigungen
 import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/sync_service.dart';
@@ -15,10 +17,10 @@ void main() async {
   try {
     await dotenv.load(fileName: ".env");
     // Debug-Ausgabe, um die geladenen Werte zu überprüfen
-    debugPrint("✅ SUPABASE_URL: ${dotenv.env['SUPABASE_URL']}");
-    debugPrint("✅ SUPABASE_ANON_KEY: ${dotenv.env['SUPABASE_ANON_KEY']}");
+    debugPrint("SUPABASE_URL: ${dotenv.env['SUPABASE_URL']}");
+    debugPrint("SUPABASE_ANON_KEY: ${dotenv.env['SUPABASE_ANON_KEY']}");
   } catch (e) {
-    debugPrint("❌ Fehler beim Laden der .env-Datei: $e");
+    debugPrint("Fehler beim Laden der .env-Datei: $e");
     rethrow;
   }
 
@@ -50,6 +52,11 @@ class LMSSmartHelperAppInitial extends StatelessWidget {
             );
           } else if (snapshot.hasData) {
             final syncService = snapshot.data as SyncService;
+            // Berechtigungen nach dem Rendern des UI anfordern
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              debugPrint("Berechtigungen werden angefordert...");
+              await _requestPermissions();
+            });
             return LMSSmartHelperApp(syncService: syncService);
           }
           return const SizedBox.shrink(); // Fallback
@@ -59,9 +66,46 @@ class LMSSmartHelperAppInitial extends StatelessWidget {
   }
 }
 
+// Methode zum Anfordern der Berechtigungen (plattformübergreifend)
+Future<void> _requestPermissions() async {
+  if (Platform.isAndroid || Platform.isIOS) {
+    List<Permission> permissionsToRequest = [Permission.camera];
+
+    if (Platform.isAndroid) {
+      // Für Android 13+ die neuen Berechtigungen verwenden
+      if (int.parse(Platform.version.split('.')[0]) >= 33) {
+        permissionsToRequest.add(Permission.photos);
+      } else {
+        permissionsToRequest.add(Permission.storage);
+      }
+    } else if (Platform.isIOS) {
+      permissionsToRequest.add(Permission.photos);
+    }
+
+    Map<Permission, PermissionStatus> statuses =
+        await permissionsToRequest.request();
+
+    bool cameraGranted = statuses[Permission.camera]!.isGranted;
+    bool photosGranted = Platform.isIOS
+        ? statuses[Permission.photos]!.isGranted
+        : (int.parse(Platform.version.split('.')[0]) >= 33
+            ? statuses[Permission.photos]!.isGranted
+            : statuses[Permission.storage]!.isGranted);
+
+    if (!cameraGranted || !photosGranted) {
+      debugPrint(
+          'Berechtigungen nicht erteilt. Bitte in den Einstellungen aktivieren.');
+      // Optional: Öffne die Einstellungen, wenn Berechtigungen verweigert wurden
+      // await openAppSettings();
+    } else {
+      debugPrint('Berechtigungen erfolgreich erteilt.');
+    }
+  }
+}
+
 Future<SyncService> setupApp() async {
   try {
-    // ✅ Supabase initialisieren
+    // Supabase initialisieren
     await Supabase.initialize(
       url: dotenv.env['SUPABASE_URL'] ?? '',
       anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
@@ -74,16 +118,16 @@ Future<SyncService> setupApp() async {
           'SUPABASE_URL oder SUPABASE_ANON_KEY fehlen in der .env-Datei.');
     }
 
-    // ✅ Exportpfad asynchron abrufen
+    // Exportpfad asynchron abrufen
     String exportFolderPath = await AppConstants.getExportPath();
 
-    // ✅ Sync-Service starten
+    // Sync-Service starten
     SyncService syncService = SyncService(exportFolderPath: exportFolderPath);
     await syncService.start();
 
     return syncService;
   } catch (e) {
-    debugPrint("❌ Fehler beim Starten der App: $e");
+    debugPrint("Fehler beim Starten der App: $e");
     rethrow;
   }
 }
@@ -95,7 +139,7 @@ class LMSSmartHelperApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'LMS Smart Helper',
+      title: 'LMS Finanzen',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFF2213B),

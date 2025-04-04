@@ -2,11 +2,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
 import '../models/campaign.dart';
 import '../services/campaign_service.dart';
 import '../services/export_service.dart';
 import '../services/file_upload_service.dart';
-import '../widgets/dropdown_selector.dart';
+import '../widgets/dropdown_selector.dart'; // Korrigiert von dropdown_sector.dart
 import '../services/data_service.dart';
 
 class CampaignScreen extends StatefulWidget {
@@ -29,7 +34,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
   String? selectedMetaAccount;
   String targetUrl = '';
   String? assetFileName;
-  File? assetFile; // Temporäre Datei für den Upload
+  File? assetFile;
 
   List<Map<String, String>> costCenters = [];
   List<Map<String, String>> employees = [];
@@ -39,6 +44,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
   List<Campaign> _campaigns = [];
   final CampaignService _campaignService = CampaignService();
   final ExportService _exportService = ExportService();
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -61,7 +67,6 @@ class _CampaignScreenState extends State<CampaignScreen> {
         projects = proj;
         metaAccounts = meta;
 
-        // Standardwerte setzen
         if (employees.isNotEmpty) selectedEmployee = employees[0]['name'];
         if (costCenters.isNotEmpty)
           selectedCostCenter =
@@ -75,7 +80,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
       });
       print('Dropdown-Daten geladen: $employees, $costCenters, $projects');
     } catch (e) {
-      print("❌ Fehler beim Laden der Dropdown-Daten: $e");
+      print("Fehler beim Laden der Dropdown-Daten: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Laden der Daten: $e')),
@@ -95,7 +100,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
       }
       print('Kampagnen geladen: $_campaigns');
     } catch (e) {
-      print("❌ Fehler beim Laden der Kampagnen: $e");
+      print("Fehler beim Laden der Kampagnen: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Laden der Kampagnen: $e')),
@@ -105,38 +110,145 @@ class _CampaignScreenState extends State<CampaignScreen> {
   }
 
   String _cleanFileName(String fileName) {
-    // Dateinamen bereinigen: Leerzeichen und Sonderzeichen ersetzen
     return fileName
         .replaceAll(' ', '_')
-        .replaceAll('–', '-')
+        .replaceAll('-', '-')
         .replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '');
   }
 
-  Future<void> _pickAssetFile() async {
-    const typeGroup =
-        XTypeGroup(label: 'files', extensions: ['jpg', 'png', 'pdf']);
-    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
-    if (file != null) {
-      try {
-        print('Datei ausgewählt: ${file.name}');
-        final cleanFileName = _cleanFileName(file.name);
-        print('Bereinigter Dateiname: $cleanFileName');
+  Future<bool> _requestPermissions() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      var cameraStatus = await Permission.camera.status;
+      var photosStatus = await (Platform.isIOS
+              ? Permission.photos
+              : (int.parse(Platform.version.split('.')[0]) >= 33
+                  ? Permission.photos
+                  : Permission.storage))
+          .status;
 
-        // Temporäre Datei speichern
-        setState(() {
-          assetFile = File(file.path);
-          assetFileName = cleanFileName;
-        });
-      } catch (e) {
-        print('❌ Fehler beim Auswählen der Datei: $e');
+      if (!cameraStatus.isGranted || !photosStatus.isGranted) {
+        // Erklärung anzeigen und Berechtigungen anfordern
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fehler beim Auswählen der Datei: $e')),
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Berechtigungen erforderlich'),
+              content: const Text(
+                  'Diese App benötigt Zugriff auf Kamera und Fotobibliothek, um Fotos für Kampagnen aufzunehmen oder auszuwählen. Bitte erlauben Sie den Zugriff.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
           );
         }
+
+        Map<Permission, PermissionStatus> statuses = await [
+          Permission.camera,
+          if (Platform.isAndroid) ...[
+            if (int.parse(Platform.version.split('.')[0]) >= 33)
+              Permission.photos
+            else
+              Permission.storage,
+          ],
+          if (Platform.isIOS) Permission.photos,
+        ].request();
+
+        bool cameraGranted = statuses[Permission.camera]!.isGranted;
+        bool photosGranted = (Platform.isIOS
+            ? statuses[Permission.photos]!.isGranted
+            : (int.parse(Platform.version.split('.')[0]) >= 33
+                ? statuses[Permission.photos]!.isGranted
+                : statuses[Permission.storage]!.isGranted));
+
+        if (!cameraGranted || !photosGranted) {
+          return false;
+        }
       }
-    } else {
-      print('Keine Datei ausgewählt.');
+      return true;
+    }
+    return true; // Für Desktop-Plattformen
+  }
+
+  Future<void> _pickAssetFile() async {
+    if (Platform.isMacOS || Platform.isWindows) {
+      const XTypeGroup typeGroup = XTypeGroup(
+        label: 'files',
+        extensions: ['jpg', 'png', 'pdf'],
+        uniformTypeIdentifiers: ['public.jpeg', 'public.png', 'public.pdf'],
+      );
+      final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+      if (file != null) {
+        try {
+          print('Datei ausgewählt: ${file.name}');
+          final cleanFileName = _cleanFileName(file.name);
+          print('Bereinigter Dateiname: $cleanFileName');
+
+          setState(() {
+            assetFile = File(file.path);
+            assetFileName = cleanFileName;
+          });
+        } catch (e) {
+          print('Fehler beim Auswählen der Datei: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Fehler beim Auswählen der Datei: $e')),
+            );
+          }
+        }
+      }
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      if (await _requestPermissions()) {
+        final XFile? file =
+            await _picker.pickImage(source: ImageSource.gallery);
+        if (file != null) {
+          await _convertImageToPdf(file);
+        }
+      }
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      if (await _requestPermissions()) {
+        final XFile? photo =
+            await _picker.pickImage(source: ImageSource.camera);
+        if (photo != null) {
+          await _convertImageToPdf(photo);
+        }
+      }
+    }
+  }
+
+  Future<void> _convertImageToPdf(XFile file) async {
+    try {
+      final pdf = pw.Document();
+      final image = pw.MemoryImage(await file.readAsBytes());
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) => pw.Center(child: pw.Image(image)),
+        ),
+      );
+
+      final tempDir = await getTemporaryDirectory();
+      final pdfPath =
+          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final pdfFile = File(pdfPath);
+      await pdfFile.writeAsBytes(await pdf.save());
+
+      final cleanFileName = _cleanFileName(file.name);
+      setState(() {
+        assetFile = pdfFile;
+        assetFileName = cleanFileName;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Konvertieren: $e')),
+        );
+      }
     }
   }
 
@@ -155,7 +267,6 @@ class _CampaignScreenState extends State<CampaignScreen> {
         final projectId = selectedProject!.split(' - ')[0];
         final metaAccountId = selectedMetaAccount!.split(' - ')[0];
 
-        // Asset hochladen, falls vorhanden
         String? assetPath;
         if (assetFile != null && assetFileName != null) {
           print('Asset-Datei vorhanden: ${assetFile!.path}');
@@ -173,10 +284,9 @@ class _CampaignScreenState extends State<CampaignScreen> {
           print('Keine Asset-Datei ausgewählt.');
         }
 
-        // Erstelle die neue Kampagne mit assetPath direkt im Konstruktor
         final newCampaign = Campaign(
-          id: 0, // Dummy-Wert, wird von der DB überschrieben
-          name: campaignName, // Ändere von campaignName zu name
+          id: 0,
+          name: campaignName,
           employee: selectedEmployee!,
           startDate: startDate!,
           endDate: endDate!,
@@ -185,27 +295,23 @@ class _CampaignScreenState extends State<CampaignScreen> {
           project: projectId,
           metaAccount: metaAccountId,
           targetUrl: targetUrl,
-          assetPath: assetPath ?? '', // Direkt im Konstruktor setzen
+          assetPath: assetPath ?? '',
         );
 
-        // Kampagne speichern
         print('Speichere Kampagne in campaigns-Tabelle...');
         await _campaignService.addCampaign(newCampaign);
-        print('✅ Kampagne gespeichert: ${newCampaign.name}');
+        print('Kampagne gespeichert: ${newCampaign.name}');
 
-        // Kampagnen neu laden
         await _loadCampaigns();
 
-        // Exportieren, wenn Kampagnen vorhanden sind
         if (_campaigns.isNotEmpty) {
           print('Exportiere Kampagnen...');
           await _exportService.exportCampaignsFancy(_campaigns);
           print('Kampagnen exportiert.');
         } else {
-          print('⚠️ Keine Kampagnen zum Exportieren gefunden.');
+          print('Keine Kampagnen zum Exportieren gefunden.');
         }
 
-        // Formular zurücksetzen
         _formKey.currentState!.reset();
         if (mounted) {
           setState(() {
@@ -239,7 +345,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
           );
         }
       } catch (e) {
-        print('❌ Fehler beim Speichern oder Exportieren: $e');
+        print('Fehler beim Speichern oder Exportieren: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -343,7 +449,8 @@ class _CampaignScreenState extends State<CampaignScreen> {
               TextFormField(
                 decoration:
                     const InputDecoration(labelText: 'Werbebudget (CHF)'),
-                keyboardType: TextInputType.number,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (val) => adBudget = double.tryParse(val),
                 validator: (val) =>
                     (val == null || double.tryParse(val) == null)
@@ -384,17 +491,43 @@ class _CampaignScreenState extends State<CampaignScreen> {
               ),
               const SizedBox(height: 10),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Expanded(
-                    child: Text(
-                      assetFileName ?? 'Asset-Datei auswählen',
-                      style: const TextStyle(color: Colors.white),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            assetFileName ?? 'Asset-Datei auswählen',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.attach_file,
+                              color: Colors.white),
+                          onPressed: _pickAssetFile,
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.attach_file, color: Colors.white),
-                    onPressed: _pickAssetFile,
-                  ),
+                  if (Platform.isAndroid || Platform.isIOS)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Foto machen',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.camera_alt,
+                                color: Colors.white),
+                            onPressed: _takePhoto,
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 16),

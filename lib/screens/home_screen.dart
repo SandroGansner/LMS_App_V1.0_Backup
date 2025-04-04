@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF2213B),
         elevation: 0,
-        title: const Text('LMS Smart Helper'),
+        title: const Text('LMS Finanzen'),
       ),
       body: _screens[_currentIndex],
       bottomNavigationBar: Container(

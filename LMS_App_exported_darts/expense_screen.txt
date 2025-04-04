@@ -160,7 +160,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               SizedBox(height: 10),
               TextFormField(
                 decoration: InputDecoration(labelText: 'Betrag (CHF)'),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (val) => amount = double.tryParse(val),
                 validator: (val) =>
                     (val == null || double.tryParse(val) == null)

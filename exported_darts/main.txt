@@ -4,11 +4,11 @@ import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 
 void main() {
-  runApp(const LMSSmartHelperApp());
+  runApp(const LMSFinanzenApp());
 }
 
-class LMSSmartHelperApp extends StatelessWidget {
-  const LMSSmartHelperApp({super.key});
+class LMSFinanzenApp extends StatelessWidget {
+  const LMSFinanzenApp({super.key});
 
   @override
   Widget build(BuildContext context) {

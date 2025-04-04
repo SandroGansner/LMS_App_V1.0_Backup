@@ -223,7 +223,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
               TextFormField(
                 decoration:
                     const InputDecoration(labelText: 'Werbebudget (CHF)'),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (val) => adBudget = double.tryParse(val),
                 validator: (val) =>
                     (val == null || double.tryParse(val) == null)
